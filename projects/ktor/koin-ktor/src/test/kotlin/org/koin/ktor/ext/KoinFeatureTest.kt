@@ -5,8 +5,11 @@ import io.ktor.server.testing.*
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Test
-import org.koin.core.annotation.KoinReflectAPI
+import org.koin.core.context.GlobalContext.get
+import org.koin.core.context.GlobalContext.getKoinApplicationOrNull
+import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
+import org.koin.dsl.koinApplication
 import org.koin.dsl.module
 import org.koin.ktor.plugin.Koin
 import org.koin.ktor.plugin.KoinIsolated
@@ -21,7 +24,6 @@ class Foo(val name: String = "")
 class Bar(val name: String = "")
 class Bar2(val name: String = "")
 
-@OptIn(KoinReflectAPI::class)
 class KoinFeatureTest {
 
     @After
@@ -34,10 +36,14 @@ class KoinFeatureTest {
         val module = module {
             single { Foo("bar") }
         }
-        withApplication {
-            application.install(Koin) {
-                modules(module)
+
+        testApplication {
+            application {
+                install(Koin) {
+                    modules(module)
+                }
             }
+            startApplication()
             val bean = KoinPlatform.getKoin().getOrNull<Foo>()
             assertNotNull(bean)
         }
@@ -48,11 +54,17 @@ class KoinFeatureTest {
         val module = module {
             single { Foo("bar") }
         }
-        withApplication {
-            application.install(KoinIsolated) {
-                modules(module)
+        testApplication {
+            var app: Application? = null
+            application {
+                app = this
+                install(KoinIsolated) {
+                    modules(module)
+                }
             }
-            val bean1 = application.get<Foo>()
+
+            startApplication()
+            val bean1 = app!!.get<Foo>()
             assertNotNull(bean1)
             val bean2 = runCatching { KoinPlatform.getKoin().getOrNull<Foo>() }.getOrNull()
             assertNull(bean2)
